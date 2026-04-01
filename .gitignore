@@ -1,0 +1,9 @@
+lmp1210/
+logs/
+checkpoints/
+
+*.slurm
+
+__pycache__
+
+create_split_csv.py
