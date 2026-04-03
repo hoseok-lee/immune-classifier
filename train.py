@@ -2,10 +2,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, random_split
 from time import time
 
-from datasets.immunocto import ImmunoctoDataset
+from datasets.immunocto import get_immunocto_loader
 from models.utils import get_model
 
 
@@ -16,47 +15,6 @@ N_SAMPLES = 10
 
 # Instantiate CUDA
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-def immunocto_loader(
-    root_dir,
-    n_samples = 1,
-    splits = [0.8, 0.1, 0.1],
-    batch_size = 100,
-    n_jobs = 1
-):
-    
-    dataset = ImmunoctoDataset(
-        root_dir = root_dir,
-        n_samples = n_samples
-    )
-    
-    trainset, validset, testset = random_split(dataset, splits)
-    
-    trainloader = DataLoader(
-        trainset,
-        batch_size = batch_size,
-        shuffle = False,
-        num_workers = n_jobs,
-        persistent_workers = True
-    )
-    
-    validloader = DataLoader(
-        validset,
-        batch_size = batch_size,
-        shuffle = False,
-        num_workers = n_jobs,
-        persistent_workers = True
-    )
-    
-    testloader = DataLoader(
-        testset,
-        batch_size = batch_size,
-        shuffle = False,
-        num_workers = n_jobs,
-        persistent_workers = True
-    )
-    
-    return trainloader, validloader, testloader
 
 
 if __name__ == "__main__":
@@ -87,7 +45,7 @@ if __name__ == "__main__":
         gamma = 0.1
     )
     
-    trainloader, validloader, testloader = immunocto_loader(
+    trainloader, validloader, testloader = get_immunocto_loader(
         "/datasets/schwartz-lab/shared/CRC_Immunocto",
         n_samples = N_SAMPLES,
         batch_size = BATCH_SIZE,
