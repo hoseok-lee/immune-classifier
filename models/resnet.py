@@ -40,7 +40,7 @@ class BasicBlock(nn.Module):
         return out
 
 
-class ResNet(nn.Module):
+class ResNet18(nn.Module):
     
     def __init__(self, 
         num_classes = 2

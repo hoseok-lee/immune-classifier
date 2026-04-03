@@ -1,10 +1,12 @@
 from pathlib import Path
 from glob import glob
 from skimage.io import imread
+from skimage.color import rgb2gray
 from numpy import expand_dims, clip
 from torch.utils.data import Dataset
 from torchvision import transforms
-import torch
+
+import numpy as np
 
 
 class ImmunoctoDataset(Dataset):
@@ -49,6 +51,10 @@ class ImmunoctoDataset(Dataset):
         # Clip to a boolean mask
         mask    = clip(mask, a_min = 0, a_max = 1)
         
+        # Grayscale and apply mask
+        # rgb2gray removes channels, add them back in
+        image   = np.rint(rgb2gray(image) * 255).astype(np.uint8)
+        image   = np.repeat(image[..., np.newaxis], 3, axis = -1)
         image   = image * mask
         # Must take shape of [N, C, W, H]
         # image   = image.reshape(3, 64, 64)

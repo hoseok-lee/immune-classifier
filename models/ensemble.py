@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from .resnet import ResNet
+from .resnet import ResNet18
 from .transformer import VisionTransformer
 
 
@@ -14,7 +14,7 @@ class EnsembleModel(nn.Module):
     ):
         
         super().__init__()
-        self.resnet = ResNet(num_classes = num_classes)
+        self.resnet = ResNet18(num_classes = num_classes)
         self.vit = VisionTransformer(
             img_size = img_size,
             num_classes = num_classes

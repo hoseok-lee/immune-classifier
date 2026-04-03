@@ -3,14 +3,15 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
+from time import time
 
 from datasets.immunocto import ImmunoctoDataset
-from models.ensemble import EnsembleModel
+from models.utils import get_model
 
 
 BATCH_SIZE = 100
 N_JOBS = 4
-N_SAMPLES = 1
+N_SAMPLES = 10
 
 
 # Instantiate CUDA
@@ -19,7 +20,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def immunocto_loader(
     root_dir,
     n_samples = 1,
-    train_split = 0.8,
+    splits = [0.8, 0.1, 0.1],
     batch_size = 100,
     n_jobs = 1
 ):
@@ -29,28 +30,53 @@ def immunocto_loader(
         n_samples = n_samples
     )
     
-    trainset, testset = random_split(dataset, [train_split, 1 - train_split])
+    trainset, validset, testset = random_split(dataset, splits)
     
     trainloader = DataLoader(
         trainset,
         batch_size = batch_size,
         shuffle = False,
         num_workers = n_jobs,
+        persistent_workers = True
     )
+    
+    validloader = DataLoader(
+        validset,
+        batch_size = batch_size,
+        shuffle = False,
+        num_workers = n_jobs,
+        persistent_workers = True
+    )
+    
     testloader = DataLoader(
         testset,
         batch_size = batch_size,
         shuffle = False,
         num_workers = n_jobs,
+        persistent_workers = True
     )
     
-    return trainloader, testloader
+    return trainloader, validloader, testloader
 
 
 if __name__ == "__main__":
     
+    import argparse
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-m", "--model",
+        help = "model for training",
+        type = str,
+        default = "ensemble",
+        choices = ["resnet", "vit", "ensemble"],
+        required = False
+    )
+    args = parser.parse_args()
+
+    
     # Instantiate model
-    model = EnsembleModel().to(device)
+    model = get_model(args.model)
     
     # BCE loss
     criterion = nn.BCEWithLogitsLoss()
@@ -61,16 +87,15 @@ if __name__ == "__main__":
         gamma = 0.1
     )
     
-    trainloader, testloader = immunocto_loader(
-        "/datasets/schwartz-lab/hslee/CRC_Immunocto",
+    trainloader, validloader, testloader = immunocto_loader(
+        "/datasets/schwartz-lab/shared/CRC_Immunocto",
         n_samples = N_SAMPLES,
-        train_split = 0.8,
         batch_size = BATCH_SIZE,
         n_jobs = N_JOBS
     )
     
     num_epochs = 10
-    train_losses, train_acc_list, test_acc_list = [], [], []
+    train_losses, train_acc_list, valid_acc_list = [], [], []
     
     # Main training loop
     for epoch in range(num_epochs):
@@ -79,6 +104,7 @@ if __name__ == "__main__":
         
         running_loss = 0.0
         correct, total = 0, 0
+        start = time()
         
         for inputs, labels in trainloader:
             
@@ -98,7 +124,6 @@ if __name__ == "__main__":
             _, predicted = outputs.max(1)
             total += labels.size(0)
             correct += predicted.eq(labels).sum().item()
-            print(correct, loss.item())
         
         train_loss = running_loss / len(trainloader.dataset)
         train_acc = 100. * correct / total
@@ -109,7 +134,7 @@ if __name__ == "__main__":
         correct, total = 0, 0
         
         with torch.no_grad():
-            for inputs, labels in testloader:
+            for inputs, labels in validloader:
                 
                 inputs, labels = inputs.to(device), labels.to(device)
                 
@@ -119,11 +144,46 @@ if __name__ == "__main__":
                 total += labels.size(0)
                 correct += predicted.eq(labels).sum().item()
                 
-        test_acc = 100. * correct / total
-        test_acc_list.append(test_acc)
+        valid_acc = 100. * correct / total
+        valid_acc_list.append(valid_acc)
         
         scheduler.step()
-        print(f"Epoch [{epoch+1}/{num_epochs}] Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | Test Acc: {test_acc:.2f}%")
+        print(f"Epoch [{epoch + 1}/{num_epochs}] \
+            Train Loss: {train_loss:.4f} | \
+            Train Acc: {train_acc:.2f}% | \
+            Validation Acc: {valid_acc:.2f}% | \
+            {(time() - start) / 60:.2f} minutes")
+    
+    
+    model.eval()
+    correct, total = 0, 0
+    
+    # Test accuracy
+    with torch.no_grad():
+        for inputs, labels in testloader:
+            
+            inputs, labels = inputs.to(device), labels.to(device)
+            
+            outputs = model(inputs)
+            
+            _, predicted = outputs.max(1)
+            total += labels.size(0)
+            correct += predicted.eq(labels).sum().item()
+            
+    test_acc = 100. * correct / total
+    
     
     # Save model
-    torch.save(model.state_dict(), "/project/6101831/shared/blood_vs_tissue/checkpoints")
+    torch.save(
+        {
+            'model_state':      model.state_dict(),
+            'optimizer_state':  optimizer.state_dict(),
+            'criterion':        criterion,
+            'train_loss':       train_losses,
+            'train_acc':        train_acc_list,
+            'valid_acc':        valid_acc_list,
+            'test_acc':         test_acc,
+            'n_samples':        N_SAMPLES
+        }, 
+        f"/project/6101831/shared/blood_vs_tissue/checkpoints/{args.model}.pt"
+    )
