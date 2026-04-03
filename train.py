@@ -5,12 +5,12 @@ import torch.nn.functional as F
 from time import time
 
 from datasets.immunocto import get_immunocto_loader
-from models.utils import get_model
+from models.models import get_model
 
 
 BATCH_SIZE = 100
 N_JOBS = 4
-N_SAMPLES = 10
+N_SAMPLES = 1
 
 
 # Instantiate CUDA
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     
     # Instantiate model
-    model = get_model(args.model)
+    model = get_model(args.model, device)
     
     # BCE loss
     criterion = nn.BCEWithLogitsLoss()
@@ -143,5 +143,5 @@ if __name__ == "__main__":
             'test_acc':         test_acc,
             'n_samples':        N_SAMPLES
         }, 
-        f"/project/6101831/shared/blood_vs_tissue/checkpoints/{args.model}.pt"
+        f"/project/6101831/shared/blood_vs_tissue/checkpoints/immunocto/{args.model}.pt"
     )

@@ -6,6 +6,7 @@ from numpy import expand_dims, clip
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms
 from typing import Optional
+from PIL import Image
 
 import numpy as np
 
@@ -15,7 +16,8 @@ class ImmunoctoDataset(Dataset):
     def __init__(
         self, 
         root_dir, 
-        n_samples = 3
+        n_samples = 3,
+        image_size = 224
     ):
         
         self.root_dir = Path(root_dir)
@@ -41,6 +43,11 @@ class ImmunoctoDataset(Dataset):
                 # Class 0 if 'other', class 1 if immune cell
                 self.idx_label.append(int(filename.split("_")[0] != "other"))
                 
+        self.transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor(),
+        ])
+                
     def __len__(self):
         return len(self.idx_label)
         
@@ -60,7 +67,7 @@ class ImmunoctoDataset(Dataset):
         # Must take shape of [N, C, W, H]
         # image   = image.reshape(3, 64, 64)
         label   = self.idx_label[idx]
-        image   = transforms.ToTensor()(image)
+        image   = self.transform(Image.fromarray(image))
         
         return image, label
         
