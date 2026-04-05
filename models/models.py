@@ -3,9 +3,8 @@ import torch
 import torch.nn as nn
 import torchvision
 
-# from .ensemble import EnsembleModel
-# from .resnet import ResNet18
-# from .transformer import VisionTransformer
+from .uni import UNIClassifier, UNI2Classifier
+from ..config import UNI_WEIGHTS, UNI2_H_WEIGHTS
 
 
 # ResNet18 image classifier
@@ -46,12 +45,15 @@ class EnsembleModel(nn.Module):
         self.w_v = nn.Parameter(torch.randn(1))
 
     def forward(self, x):
-        
         # Forward pass of individual models
         return self.resnet(x) * self.w_r + self.vit(x) * self.w_v
 
+
 def get_model(
-    model: Literal["resnet", "vit", "ensemble"], 
+    model: Literal[
+        "resnet", "vit", "ensemble",    # Base trainable models
+        "uni", "uni2"                   # Foundation models
+    ], 
     device
 ):
     
@@ -61,6 +63,23 @@ def get_model(
     elif model == "vit":
         return vit_l_16().to(device)
         
-    else:
+    elif model == "ensemble":
         return EnsembleModel().to(device)
+        
+    elif model == "uni":
+        
+        model = UNIClassifier(weights = UNI_WEIGHTS).to(device)
+        # Freeze foundation model
+        for param in model.fm.parameters():
+            param.requires_grad = False
+            
+        return model
 
+    elif model == "uni2":
+        
+        model = UNI2Classifier(weights = UNI2_H_WEIGHTS).to(device)
+        # Freeze foundation model
+        for param in model.fm.parameters():
+            param.requires_grad = False
+            
+        return model

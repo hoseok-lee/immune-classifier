@@ -6,6 +6,7 @@ from time import time
 
 from datasets.immunocto import get_immunocto_loader
 from models.models import get_model
+from .config import IMMUNOCTO
 
 
 BATCH_SIZE = 100
@@ -27,7 +28,7 @@ if __name__ == "__main__":
         help = "model for training",
         type = str,
         default = "ensemble",
-        choices = ["resnet", "vit", "ensemble"],
+        choices = ["resnet", "vit", "ensemble", "uni", "uni2"],
         required = False
     )
     args = parser.parse_args()
@@ -46,7 +47,7 @@ if __name__ == "__main__":
     )
     
     trainloader, validloader, testloader = get_immunocto_loader(
-        "/datasets/schwartz-lab/shared/CRC_Immunocto",
+        IMMUNOCTO,
         n_samples = N_SAMPLES,
         batch_size = BATCH_SIZE,
         n_jobs = N_JOBS

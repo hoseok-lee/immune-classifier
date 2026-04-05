@@ -6,9 +6,8 @@ from torch.utils.data import DataLoader
 from time import time
 
 from datasets.blood_dataset import BloodDataset
-from models.ensemble import EnsembleModel
-from models.resnet import ResNet18
-from models.transformer import VisionTransformer
+from models.models import get_model
+
 
 
 BATCH_SIZE = 100
@@ -67,14 +66,6 @@ def blood_loader(
     return trainloader, validloader, testloader
 
 
-def get_model(model):
-    if model == "resnet":
-        return ResNet18().to(device)
-    elif model == "vit":
-        return VisionTransformer().to(device)
-    else:
-        return EnsembleModel().to(device)
-
 
 if __name__ == "__main__":
     import argparse
@@ -121,8 +112,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    model = get_model(args.model)
-
+    model = get_model(args.model, device)
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters())
     scheduler = optim.lr_scheduler.StepLR(

@@ -6,4 +6,4 @@ checkpoints/
 
 __pycache__
 
-create_split_csv.py
+config.py
