@@ -6,12 +6,7 @@ from time import time
 
 from datasets.immunocto import get_immunocto_loader
 from models.models import get_model
-from .config import IMMUNOCTO
-
-
-BATCH_SIZE = 100
-N_JOBS = 4
-N_SAMPLES = 1
+from config import IMMUNOCTO_PATH
 
 
 # Instantiate CUDA
@@ -31,6 +26,26 @@ if __name__ == "__main__":
         choices = ["resnet", "vit", "ensemble", "uni", "uni2"],
         required = False
     )
+    parser.add_argument(
+        "-s", "--n_samples",
+        type = int,
+        default = 1e6
+    )
+    parser.add_argument(
+        "-b", "--batch_size",
+        type = int,
+        default = 100
+    )
+    parser.add_argument(
+        "-j", "--n_jobs",
+        type = int,
+        default = 1
+    )
+    parser.add_argument(
+        "-e", "--n_epochs",
+        type = int,
+        default = 10
+    )
     args = parser.parse_args()
 
     
@@ -47,17 +62,16 @@ if __name__ == "__main__":
     )
     
     trainloader, validloader, testloader = get_immunocto_loader(
-        IMMUNOCTO,
-        n_samples = N_SAMPLES,
-        batch_size = BATCH_SIZE,
-        n_jobs = N_JOBS
+        IMMUNOCTO_PATH,
+        n_samples = args.n_samples,
+        batch_size = args.batch_size,
+        n_jobs = args.n_jobs
     )
     
-    num_epochs = 10
     train_losses, train_acc_list, valid_acc_list = [], [], []
     
     # Main training loop
-    for epoch in range(num_epochs):
+    for epoch in range(args.n_epochs):
         
         model.train()
         
@@ -107,7 +121,7 @@ if __name__ == "__main__":
         valid_acc_list.append(valid_acc)
         
         scheduler.step()
-        print(f"Epoch [{epoch + 1}/{num_epochs}] \
+        print(f"Epoch [{epoch + 1}/{args.n_epochs}] \
             Train Loss: {train_loss:.4f} | \
             Train Acc: {train_acc:.2f}% | \
             Validation Acc: {valid_acc:.2f}% | \
@@ -142,7 +156,7 @@ if __name__ == "__main__":
             'train_acc':        train_acc_list,
             'valid_acc':        valid_acc_list,
             'test_acc':         test_acc,
-            'n_samples':        N_SAMPLES
+            'n_samples':        args.n_samples
         }, 
         f"/project/6101831/shared/blood_vs_tissue/checkpoints/immunocto/{args.model}.pt"
     )

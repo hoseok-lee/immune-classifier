@@ -4,7 +4,10 @@ import torch.nn as nn
 import torchvision
 
 from .uni import UNIClassifier, UNI2Classifier
-from ..config import UNI_WEIGHTS, UNI2_H_WEIGHTS
+
+
+from .dinobloom import DinoBloomClassifier
+from config import UNI_WEIGHTS, UNI2_H_WEIGHTS, DINOBLOOM_WEIGHTS
 
 
 # ResNet18 image classifier
@@ -52,7 +55,7 @@ class EnsembleModel(nn.Module):
 def get_model(
     model: Literal[
         "resnet", "vit", "ensemble",    # Base trainable models
-        "uni", "uni2"                   # Foundation models
+        "uni", "uni2", "dinobloom"                   # Foundation models
     ], 
     device
 ):
@@ -82,4 +85,13 @@ def get_model(
         for param in model.fm.parameters():
             param.requires_grad = False
             
+        return model
+
+    elif model == "dinobloom":
+        model = DinoBloomClassifier(
+            weights=DINOBLOOM_WEIGHTS,
+            modelname="dinov2_vits14",
+            num_classes=2,
+        ).to(device)
+        
         return model

@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+import numpy as np
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from time import time
 
 from datasets.blood_dataset import BloodDataset
@@ -22,6 +23,7 @@ def blood_loader(
     batch_size=100,
     n_jobs=4,
     image_size=224,
+    train_samples_per_epoch=None,
 ):
     trainset = BloodDataset(
         csv_path=f"{split_dir}/train.csv",
@@ -36,13 +38,34 @@ def blood_loader(
         image_size=image_size,
     )
 
+    # weighted sampling to address class imbalance
+    train_labels = trainset.df["label"].values.astype(int)
+    class_counts = np.bincount(train_labels, minlength=2)
+
+    print(f"Train class counts: {class_counts.tolist()}")  # [non_immune, immune]
+
+    # inverse-frequency sample weights
+    class_sample_weights = 1.0 / class_counts
+    sample_weights = class_sample_weights[train_labels]
+    sample_weights = torch.DoubleTensor(sample_weights)
+
+    if train_samples_per_epoch is None:
+        train_samples_per_epoch = len(trainset)
+
+    sampler = WeightedRandomSampler(
+        weights=sample_weights,
+        num_samples=train_samples_per_epoch,
+        replacement=True,
+    )
+    
+    # use the sampler in the trainloader, and shuffle=False since shuffling is handled by the sampler
     trainloader = DataLoader(
-        trainset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=n_jobs,
-        pin_memory=True,
-        persistent_workers=(n_jobs > 0),
+    trainset,
+    batch_size=batch_size,
+    sampler=sampler,
+    num_workers=n_jobs,
+    pin_memory=True,
+    persistent_workers=(n_jobs > 0),
     )
 
     validloader = DataLoader(
@@ -75,7 +98,7 @@ if __name__ == "__main__":
         "-m", "--model",
         type=str,
         default="ensemble",
-        choices=["resnet", "vit", "ensemble"],
+        choices=["resnet", "vit", "ensemble", "dinobloom"],
         help="model for training"
     )
     parser.add_argument(
@@ -102,17 +125,35 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_epochs",
         type=int,
-        default=10
+        default=20
     )
     parser.add_argument(
         "--save_path",
         type=str,
         default=None
     )
+    parser.add_argument(
+        "--freeze_backbone",
+        action="store_true",
+        help="freeze DinoBloom backbone if model == dinobloom"
+    )
+    parser.add_argument(
+        "--train_samples_per_epoch",
+        type=int,
+        default=30000,
+        help="number of sampled training examples per epoch with WeightedRandomSampler"
+    )
 
     args = parser.parse_args()
 
     model = get_model(args.model, device)
+    
+    if args.model == "dinobloom" and args.freeze_backbone:
+        print("Freezing DinoBloom backbone")
+        for p in model.fm.parameters():
+            p.requires_grad = False
+    
+
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters())
     scheduler = optim.lr_scheduler.StepLR(
@@ -122,10 +163,11 @@ if __name__ == "__main__":
     )
 
     trainloader, validloader, testloader = blood_loader(
-        split_dir=args.split_dir,
-        batch_size=args.batch_size,
-        n_jobs=args.n_jobs,
-        image_size=args.image_size,
+    split_dir=args.split_dir,
+    batch_size=args.batch_size,
+    n_jobs=args.n_jobs,
+    image_size=args.image_size,
+    train_samples_per_epoch=args.train_samples_per_epoch,
     )
 
     train_losses, train_acc_list, valid_acc_list = [], [], []
@@ -154,7 +196,7 @@ if __name__ == "__main__":
             total += labels.size(0)
             correct += predicted.eq(labels).sum().item()
 
-        train_loss = running_loss / len(trainloader.dataset)
+        train_loss = running_loss / total
         train_acc = 100.0 * correct / total
         train_losses.append(train_loss)
         train_acc_list.append(train_acc)

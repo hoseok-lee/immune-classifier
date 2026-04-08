@@ -1,6 +1,7 @@
 lmp1210/
 logs/
 checkpoints/
+figures/
 
 *.slurm
 

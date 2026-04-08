@@ -3,10 +3,16 @@ from glob import glob
 from skimage.io import imread
 from skimage.color import rgb2gray
 from numpy import expand_dims, clip
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import (
+    Dataset, 
+    DataLoader, 
+    random_split, 
+    WeightedRandomSampler
+)
 from torchvision import transforms
 from typing import Optional
 from PIL import Image
+from collections import defaultdict
 
 import numpy as np
 
@@ -16,7 +22,7 @@ class ImmunoctoDataset(Dataset):
     def __init__(
         self, 
         root_dir, 
-        n_samples = 3,
+        n_samples = 1e6,
         image_size = 224
     ):
         
@@ -25,36 +31,53 @@ class ImmunoctoDataset(Dataset):
         # Get all sample/file names and organize by index
         # pytorch will use these indices to retrieve images at run-time
 
-        self.samples = glob("*", root_dir = self.root_dir)
+        self.patients = glob("*", root_dir = self.root_dir)
         self.n_samples = n_samples
-        
-        self.idx_image  = []
-        self.idx_mask   = []
-        self.idx_label  = []
-        
-        for sample in self.samples[:self.n_samples]:
+        self.samples = []
+        self.class_count = defaultdict(int)
+
+        # Get all images and sample randomly
+        # We do not want to bias based on patient/ordering
+        for patient in self.patients:
             
-            folder = self.root_dir / sample
+            folder = self.root_dir / patient
             filenames = glob("*", root_dir = folder / "HE")
             
             for filename in filenames:
-                self.idx_image.append(folder / "HE" / filename)
-                self.idx_mask.append(folder / "mask" / filename)
-                # Class 0 if 'other', class 1 if immune cell
-                self.idx_label.append(int(filename.split("_")[0] != "other"))
+                
+                label = int(filename.split("_")[0] != "other")
+                self.class_count[label] += 1
+                
+                self.samples.append(
+                    {
+                        'image': folder / "HE" / filename,
+                        'mask': folder / "mask" / filename,
+                        # Class 0 if 'other', class 1 if immune cell
+                        'label': label
+                    }
+                )
+        
+        # Random subset
+        np.random.seed(0)
+        self.samples = np.random.choice(
+            self.samples,
+            self.n_samples,
+            replace = False
+        )
                 
         self.transform = transforms.Compose([
             transforms.Resize((image_size, image_size)),
+            transforms.RandomRotation(360),
             transforms.ToTensor(),
         ])
                 
     def __len__(self):
-        return len(self.idx_label)
+        return self.n_samples
         
     def __getitem__(self, idx):
         
-        image   = imread(self.idx_image[idx])
-        mask    = imread(self.idx_mask[idx])
+        image   = imread(self.samples[idx]['image'])
+        mask    = imread(self.samples[idx]['mask'])
         mask    = expand_dims(mask, axis = -1)
         # Clip to a boolean mask
         mask    = clip(mask, a_min = 0, a_max = 1)
@@ -66,10 +89,51 @@ class ImmunoctoDataset(Dataset):
         image   = image * mask
         # Must take shape of [N, C, W, H]
         # image   = image.reshape(3, 64, 64)
-        label   = self.idx_label[idx]
+        label   = self.samples[idx]['label']
         image   = self.transform(Image.fromarray(image))
         
         return image, label
+        
+        
+def get_dataloader(
+    dataset,
+    batch_size = 100,
+    n_jobs = 1,
+    subset = False
+):
+    
+    if subset:
+        return DataLoader(
+            dataset,
+            batch_size = batch_size,
+            num_workers = n_jobs,
+            persistent_workers = True,
+            sampler = WeightedRandomSampler(
+                weights = [
+                    1. / dataset.dataset.class_count[
+                        dataset.dataset.samples[idx]['label']
+                    ]
+                    for idx in dataset.indices
+                ],
+                num_samples = len(dataset),
+                replacement = True,
+            )
+        )
+    
+    return DataLoader(
+        dataset,
+        batch_size = batch_size,
+        num_workers = n_jobs,
+        persistent_workers = True,
+        sampler = WeightedRandomSampler(
+            weights = [
+                1. / dataset.class_count[sample['label']]
+                for sample in dataset.samples
+            ],
+            num_samples = len(dataset),
+            replacement = True,
+        )
+    )
         
         
 def get_immunocto_loader(
@@ -87,38 +151,12 @@ def get_immunocto_loader(
     
     # No split -> full dataset
     if splits is None:
-        return DataLoader(
-            dataset,
-            batch_size = batch_size,
-            shuffle = False,
-            num_workers = n_jobs,
-            persistent_workers = True
-        )
+        return get_dataloader(dataset)
     
     trainset, validset, testset = random_split(dataset, splits)
     
-    trainloader = DataLoader(
-        trainset,
-        batch_size = batch_size,
-        shuffle = False,
-        num_workers = n_jobs,
-        persistent_workers = True
-    )
-    
-    validloader = DataLoader(
-        validset,
-        batch_size = batch_size,
-        shuffle = False,
-        num_workers = n_jobs,
-        persistent_workers = True
-    )
-    
-    testloader = DataLoader(
-        testset,
-        batch_size = batch_size,
-        shuffle = False,
-        num_workers = n_jobs,
-        persistent_workers = True
-    )
+    trainloader = get_dataloader(trainset, subset = True)
+    validloader = get_dataloader(validset, subset = True)
+    testloader = get_dataloader(testset, subset = True)
     
     return trainloader, validloader, testloader
