@@ -4,9 +4,8 @@ import torch.nn as nn
 import torchvision
 
 from .uni import UNIClassifier, UNI2Classifier
-
-
 from .dinobloom import DinoBloomClassifier
+
 from config import UNI_WEIGHTS, UNI2_H_WEIGHTS, DINOBLOOM_WEIGHTS
 
 
@@ -88,10 +87,11 @@ def get_model(
         return model
 
     elif model == "dinobloom":
+        
         model = DinoBloomClassifier(
-            weights=DINOBLOOM_WEIGHTS,
-            modelname="dinov2_vits14",
-            num_classes=2,
+            weights = DINOBLOOM_WEIGHTS,
+            modelname = "dinov2_vits14",
+            num_classes = 2,
         ).to(device)
         
         return model
