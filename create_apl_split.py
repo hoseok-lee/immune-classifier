@@ -41,14 +41,14 @@ def get_all_patients(root_dir: Path):
 def split_patients(patients):
     train_patients, test_patients = train_test_split(
         patients,
-        test_size=0.15,
-        random_state=RANDOM_SEED
+        test_size = 0.15,
+        random_state = RANDOM_SEED
     )
 
     train_patients, val_patients = train_test_split(
         train_patients,
-        test_size=0.1765,  # ~15% overall
-        random_state=RANDOM_SEED
+        test_size = 0.1765,  # ~15% overall
+        random_state = RANDOM_SEED
     )
 
     return train_patients, val_patients, test_patients
@@ -87,7 +87,8 @@ def collect_image_metadata(root_dir: Path, patient_list, split_name: str):
     return pd.DataFrame(rows)
 
 
-def main():
+if __name__ == "__main__":
+    
     patients = get_all_patients(ROOT_DIR)
     print(f"Total patients: {len(patients)}")
 
@@ -107,7 +108,3 @@ def main():
     print("CSV split files saved.")
     print(full_df["split"].value_counts())
     print(full_df.head())
-
-
-if __name__ == "__main__":
-    main()
