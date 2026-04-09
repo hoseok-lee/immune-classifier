@@ -1,40 +1,52 @@
+import argparse
 import torch
 from torch.utils.data import DataLoader
 
-from datasets.blood_dataset import BloodDataset
+from datasets.immunocto import ImmunoctoDataset, get_immunocto_loader
 from models.models import get_model
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--model",
+    type=str,
+    required=True,
+    choices=["resnet", "vit", "ensemble", "uni"]
+)
+parser.add_argument(
+    "--ckpt_dir",
+    type=str,
+    default="/project/6101831/shared/blood_vs_tissue/checkpoints/immunocto"
+)
+args = parser.parse_args()
+
+ckpt_path = f"{args.ckpt_dir}/{args.model}.pt"
+print(f"Loading checkpoint: {ckpt_path}")
+
 obj = torch.load(
-    "checkpoints/immunocto/uni.pt",
-    map_location = torch.device(device),
-    weights_only = False
+    ckpt_path,
+    map_location=device,
+    weights_only=False
 )
 
-model = get_model("uni", device)
+model = get_model(args.model, device)
 model.load_state_dict(obj["model_state"])
 model.eval()
 
-testset = BloodDataset(
-    csv_path="/home/yyx01056/scratch/splits/test.csv",
-    image_size=224,
-)
-
-testloader = DataLoader(
-    testset,
+dataloader = get_immunocto_loader(
+    root_dir="/datasets/schwartz-lab/shared/CRC_Immunocto",
+    n_samples=10,
+    splits=None,
     batch_size=100,
-    shuffle=False,
-    pin_memory=True,
+    n_jobs=4
 )
-
 
 correct, total = 0, 0
 TP, FP, FN, TN = 0, 0, 0, 0
 
 with torch.no_grad():
-    for inputs, labels in testloader:
+    for inputs, labels in dataloader:
         inputs, labels = inputs.to(device), labels.to(device)
 
         outputs = model(inputs)
@@ -47,18 +59,18 @@ with torch.no_grad():
         FN += ((predicted == 0) & (labels == 1)).sum().item()
         TN += ((predicted == 0) & (labels == 0)).sum().item()
 
+if total == 0:
+    raise ValueError("Empty testloader.")
+
 test_acc = 100.0 * correct / total
-
-print("==========Evaluation of Immunocto-trained UNI model on blood dataset:==========")
-
 precision = TP / (TP + FP) if (TP + FP) > 0 else 0.0
 recall = TP / (TP + FN) if (TP + FN) > 0 else 0.0
 f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 specificity = TN / (TN + FP) if (TN + FP) > 0 else 0.0
 
+print(f"==========Evaluation of Immunocto-trained {args.model} model on Immunocto test set:==========")
 print(f"Accuracy:     {test_acc:.2f}%")
 print(f"Precision:    {precision:.4f}")
 print(f"Recall:       {recall:.4f}")
 print(f"F1-score:     {f1:.4f}")
 print(f"Specificity:  {specificity:.4f}")
-

@@ -2,6 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from pathlib import Path
+from models.models import get_model
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -18,14 +19,12 @@ bres = torch.load(checkpoints / "blood_resnet.pt", weights_only = False, map_loc
 bvit = torch.load(checkpoints / "blood_vit.pt", weights_only = False, map_location = device)
 bbl = torch.load(checkpoints / "blood_dinobloom.pt", weights_only = False, map_location = device)
 
-
-
 def plot_curves():
     
     x = range(1, len(bens['train_loss']) + 1)
     plt.clf()
     fig, axs = plt.subplots(3, 2, sharex = 'col', sharey = 'row')
-    fig.set_size_inches(10, 8)
+    fig.set_size_inches(10, 6)
     
     axs.flat[0].plot(x, bens['train_loss'], label = "Ensemble")
     axs.flat[0].plot(x, bres['train_loss'], label = "ResNet18")
@@ -80,4 +79,15 @@ def plot_curves():
     )
     
     
-plot_curves()
+# plot_curves()
+
+imodel = get_model("ensemble", device = device)
+bmodel = get_model("ensemble", device = device)
+
+imodel.load_state_dict(iens['model_state'])
+imodel.eval()
+bmodel.load_state_dict(bens['model_state'])
+bmodel.eval()
+
+print(imodel.w_r, imodel.w_v)
+print(bmodel.w_r, bmodel.w_v)
