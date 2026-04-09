@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 
-from datasets.blood_dataset import BloodDataset
+from datasets.apl import APLDataset
 from models.models import get_model
 
 

@@ -6,7 +6,7 @@ import numpy as np
 from torch.utils.data import DataLoader, WeightedRandomSampler
 from time import time
 
-from datasets.blood_dataset import BloodDataset
+from datasets.apl import APLDataset
 from models.models import get_model
 
 
@@ -25,15 +25,15 @@ def blood_loader(
     image_size=224,
     train_samples_per_epoch=None,
 ):
-    trainset = BloodDataset(
+    trainset = APLDataset(
         csv_path=f"{split_dir}/train.csv",
         image_size=image_size,
     )
-    validset = BloodDataset(
+    validset = APLDataset(
         csv_path=f"{split_dir}/val.csv",
         image_size=image_size,
     )
-    testset = BloodDataset(
+    testset = APLDataset(
         csv_path=f"{split_dir}/test.csv",
         image_size=image_size,
     )

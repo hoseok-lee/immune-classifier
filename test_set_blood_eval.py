@@ -2,7 +2,7 @@ import argparse
 import torch
 from torch.utils.data import DataLoader
 
-from datasets.blood_dataset import BloodDataset
+from datasets.apl import APLDataset
 from models.models import get_model
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -34,7 +34,7 @@ model = get_model(args.model, device)
 model.load_state_dict(obj["model_state"])
 model.eval()
 
-testset = BloodDataset(
+testset = APLDataset(
     csv_path="/home/yyx01056/scratch/splits/test.csv",
     image_size=224,
 )

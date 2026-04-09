@@ -87,8 +87,7 @@ class ImmunoctoDataset(Dataset):
         image   = np.rint(rgb2gray(image) * 255).astype(np.uint8)
         image   = np.repeat(image[..., np.newaxis], 3, axis = -1)
         image   = image * mask
-        # Must take shape of [N, C, W, H]
-        # image   = image.reshape(3, 64, 64)
+        
         label   = self.samples[idx]['label']
         image   = self.transform(Image.fromarray(image))
         
