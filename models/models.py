@@ -93,5 +93,8 @@ def get_model(
             modelname = "dinov2_vits14",
             num_classes = 2,
         ).to(device)
+        # Freeze foundation model
+        for param in model.fm.parameters():
+            param.requires_grad = False
         
         return model

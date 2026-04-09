@@ -4,7 +4,11 @@ import numpy as np
 from PIL import Image, ImageFile
 
 from skimage.color import rgb2gray
-from torch.utils.data import Dataset
+from torch.utils.data import (
+    Dataset, 
+    DataLoader,
+    WeightedRandomSampler
+)
 from torchvision import transforms
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -75,3 +79,75 @@ class APLDataset(Dataset):
         image   = self.transform(Image.fromarray(image))
 
         return image, label
+        
+        
+def get_blood_loader(
+    split_dir,
+    batch_size = 100,
+    n_jobs = 4,
+    image_size = 224,
+    train_samples_per_epoch = None,
+):
+    
+    trainset = APLDataset(
+        csv_path = f"{split_dir}/train.csv",
+        image_size = image_size,
+    )
+    
+    validset = APLDataset(
+        csv_path = f"{split_dir}/val.csv",
+        image_size = image_size,
+    )
+    
+    testset = APLDataset(
+        csv_path = f"{split_dir}/test.csv",
+        image_size = image_size,
+    )
+
+    # Weighted sampling to address class imbalance
+    train_labels = trainset.df["label"].values.astype(int)
+    class_counts = np.bincount(train_labels, minlength = 2)
+
+    # Inverse-frequency sample weights
+    class_sample_weights = 1.0 / class_counts
+    sample_weights = class_sample_weights[train_labels]
+    sample_weights = torch.DoubleTensor(sample_weights)
+
+    if train_samples_per_epoch is None:
+        train_samples_per_epoch = len(trainset)
+
+    sampler = WeightedRandomSampler(
+        weights = sample_weights,
+        num_samples = train_samples_per_epoch,
+        replacement = True,
+    )
+    
+    # use the sampler in the trainloader, and shuffle=False since shuffling is handled by the sampler
+    trainloader = DataLoader(
+        trainset,
+        batch_size = batch_size,
+        sampler = sampler,
+        num_workers = n_jobs,
+        pin_memory = True,
+        persistent_workers = (n_jobs > 0),
+    )
+
+    validloader = DataLoader(
+        validset,
+        batch_size = batch_size,
+        shuffle = False,
+        num_workers = n_jobs,
+        pin_memory = True,
+        persistent_workers = (n_jobs > 0),
+    )
+
+    testloader = DataLoader(
+        testset,
+        batch_size = batch_size,
+        shuffle = False,
+        num_workers = n_jobs,
+        pin_memory = True,
+        persistent_workers = (n_jobs > 0),
+    )
+
+    return trainloader, validloader, testloader

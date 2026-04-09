@@ -17,7 +17,7 @@ model = get_model("uni", device)
 model.load_state_dict(obj["model_state"])
 model.eval()
 
-testset = BloodDataset(
+testset = APLDataset(
     csv_path="/home/yyx01056/scratch/splits/test.csv",
     image_size=224,
 )

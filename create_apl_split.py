@@ -1,13 +1,14 @@
 import pandas as pd
 from pathlib import Path
 from sklearn.model_selection import train_test_split
+from config import APL_SPLIT_PATH, APL_PATH
 
 # ----------------------------
 # CONFIG
 # ----------------------------
-ROOT_DIR = Path("/datasets/schwartz-lab/shared/kaggle_APL/All")
-OUTPUT_DIR = Path("/home/yyx01056/scratch/splits")
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+ROOT_DIR = Path(APL_PATH)
+OUTPUT_DIR = Path(APL_SPLIT_PATH)
+OUTPUT_DIR.mkdir(parents = True, exist_ok = True)
 
 RANDOM_SEED = 42
 
