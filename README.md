@@ -14,4 +14,9 @@ smears (PBS), to investigate whether learned features are transferable.
 
 We used an ensemble model consisting of ResNet18 and a ViT Large-16 adopted from 
 base architecture in `torchvision.models`. Training was done over $10$ epochs on
-GPUs on Digital Research Alliance of Canada (DRAC).
+GPUs on Digital Research Alliance of Canada (DRAC). [UNI](https://github.com/mahmoodlab/UNI)
+and [DinoBloom](https://github.com/marrlab/DinoBloom) were trained as baseline
+models for state-of-the-art (SOTA) comparison. This directory contains code for
+loading the two datasets and training all models discussed.
+
+The final report is available [here](./final_report.pdf).
