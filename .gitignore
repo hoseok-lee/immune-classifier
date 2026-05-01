@@ -13,4 +13,6 @@ plot.py
 evaluate_on_blood.py
 evaluate_on_Immunocto.py
 test_set_blood_eval.py
+mask_cellpose.py
+create_apl_split.py
 test_set_imm_eval.py
